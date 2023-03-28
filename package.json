@@ -4,9 +4,9 @@
   "description": "A simple homework management webapp",
   "main": "app.js",
   "scripts": {
-      "start": "node app.js", 
-      "devstart": "nodemon -e js,ejs,sql,env app.js", 
-      "initdb": "node db/db_init.js"
+    "start": "node app.js",
+    "devstart": "nodemon -e js,ejs,sql,env app.js",
+    "initdb": "node db/db_init.js"
   },
   "repository": {
     "type": "git",
@@ -26,6 +26,6 @@
     "mysql2": "^2.3.3"
   },
   "devDependencies": {
-    "nodemon": "^2.0.21"
+    "nodemon": "^2.0.22"
   }
 }

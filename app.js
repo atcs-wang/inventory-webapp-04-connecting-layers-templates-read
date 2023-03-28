@@ -11,7 +11,7 @@ const port = 3000;
 // Configure Express to use EJS
 app.set( "views",  __dirname + "/views");
 app.set( "view engine", "ejs" );
-
+ 
 // define middleware that logs all incoming requests
 app.use(logger("dev"));
 
@@ -26,10 +26,19 @@ app.get( "/", ( req, res ) => {
 // define a route for the assignment list page
 const read_assignments_all_sql = `
     SELECT
-        id, title, priority, subject, 
+        assignmentId, title, priority, assignments.subjectId, subjectName,
         DATE_FORMAT(dueDate, "%m/%d/%Y (%W)") AS dueDateFormatted
     FROM 
         assignments
+    JOIN subjects
+        ON assignments.subjectId = subjects.subjectId
+`
+
+const read_subjects_all_sql = `
+    SELECT 
+        subjectId, subjectName
+    FROM
+        subjects
 `
 app.get( "/assignments", ( req, res ) => {
     db.execute(read_assignments_all_sql, (error, results) => {
@@ -38,14 +47,28 @@ app.get( "/assignments", ( req, res ) => {
         if (error)
             res.status(500).send(error); //Internal Server Error
         else {
-            let data = { hwlist : results };
-            res.render('assignments', data);
-            // data's object structure: 
-            //  { hwlist: [
-            //     {  id: __ , title: __ , priority: __ , subject: __ ,  dueDateFormatted: __ },
-            //     {  id: __ , title: __ , priority: __ , subject: __ ,  dueDateFormatted: __ },
-            //     ...]
-            //  }
+            
+            db.execute(read_subjects_all_sql, (error2, results2) => {
+                if (DEBUG)
+                    console.log(error2 ? error2 : results2);
+                if (error2)
+                    res.status(500).send(error2); //Internal Server Error
+                else {
+                    let data = { hwlist : results, subjectlist : results2 };
+                    res.render('assignments', data);
+                    // data's object structure: 
+                    //  { hwlist: [
+                    //     {  id: __ , title: __ , priority: __ , subject: __ ,  dueDateFormatted: __ },
+                    //     {  id: __ , title: __ , priority: __ , subject: __ ,  dueDateFormatted: __ },
+                    //     ...],
+                    //     subjectlist : [
+                    //         {subjectId: ___, subjectName: ___}, ...
+                    //     ]
+                    //  }
+                }
+            })
+            
+            
         }
     });
 });

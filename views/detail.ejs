@@ -93,16 +93,13 @@
     
                         <div class="input-field col s6">
                             <select type="number" id="subjectInput" name="subject">
-                                <option value="" disabled <% if (subject == "") { %> selected <% } %>>
+                                <option value="" disabled>
                                     Choose your subject</option>
-                                <option value="Comp Sci"  <% if (subject == "Comp Sci") { %> selected <% } %>>
-                                    Comp Sci</option>
-                                <option value="Math"      <% if (subject == "Math") { %> selected <% } %>>
-                                    Math</option>
-                                <option value="Language"  <% if (subject == "Language") { %> selected <% } %>>
-                                    Language</option>
-                                <option value="Music"     <% if (subject == "Music") { %> selected <% } %>>
-                                    Music</option>
+                                <% for (let i = 0; i < subjectlist.length; i++) { %>
+                                    <option value=<%=subjectlist[i].subjectId %> 
+                                        <% if (subjectId == subjectlist[i].subjectId) { %> selected <% } %> >
+                                        <%= subjectlist[i].subjectName %></option>
+                                <% } %>
                               </select>
                               <label for="subjectInput">Subject:</label>
                         </div>

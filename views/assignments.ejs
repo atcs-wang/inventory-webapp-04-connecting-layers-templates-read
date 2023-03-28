@@ -60,7 +60,7 @@
                     <tr>
                         <td><%= hwlist[i].title %></td>
                         <td><%= hwlist[i].priority %></td>
-                        <td><%= hwlist[i].subject %></td>
+                        <td><%= hwlist[i].subjectName %></td>
                         <td><%= hwlist[i].dueDateFormatted %></td>
                         <td>
                             <a class="btn-small waves-effect waves-light" href="/assignments/<%= hwlist[i].id %>">
@@ -92,14 +92,13 @@
                     </div>
 
                     <div class="input-field col s6">
-                        <select type="number" id="subjectInput" name="subject" id="subjectInput">
+                        <select id="subjectInput" name="subject" id="subjectInput">
                             <option value="" disabled selected>Choose your subject</option>
-                            <option value="Comp Sci">Comp Sci</option>
-                            <option value="Math">Math</option>
-                            <option value="Language">Language</option>
-                            <option value="Music">Music</option>
-                          </select>
-                          <label for="subjectInput">Subject:</label>
+                            <% for (let i = 0; i < subjectlist.length; i++) { %>
+                                <option value=<%=subjectlist[i].subjectId %>><%= subjectlist[i].subjectName %></option>
+                            <% } %>
+                        </select>
+                        <label for="subjectInput">Subject:</label>
                     </div>
 
                     <div class="input-field col s6">
