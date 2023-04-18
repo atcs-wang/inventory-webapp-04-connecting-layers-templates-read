@@ -78,18 +78,44 @@ and replace it with this:
   "scripts": {
     "start": "node app.js", 
     "devstart": "nodemon -e js,ejs,sql,env app.js", 
-    "initdb": "node db/db_init.js"
+    "dbcreate": "node db/db_create.js",
+    "dbsample": "node db/db_insert_sample_data.js",
+    "dbprint": "node db/db_print.js",
+    "devstart-fresh": "npm-run-all dbcreate dbsample dbprint devstart" 
    },
 ```
 
-Now, you can try running some of these scripts:
+Now, you can run either of these scripts to start your server:
 ```
 > npm run start             //start the server
-> npm run devstart          //start the server, updating on code change
-> npm run initdb            //re-initialize the database
+> npm run devstart          //start the server with nodemon, updating on code change
 ```
 
+Going forward, you'll probably prefer `npm run devstart` for most of your development needs. 
+
 > Note: `npm start` can also be used in place of `npm run start`. All the other scripts require the full "`npm run ____`" but `npm start` is a special command. Most cloud deployment services use `npm start` to start your server, so defining this now gets us ready for future deployment.
+
+The other `npm` scripts are convenient shortcuts for our database scripts we wrote in the last tutorial. 
+
+```
+> npm run dbcreate          //drop and (re)-create database tables  
+> npm run dbsample          //delete and (re)-insert sample data in database
+> npm run dbprint           //print contents of tables in database
+> npm run devstart-fresh    //run the 3 above scripts, then devstart
+```
+
+The last script `devstart-fresh` utilizes npm package `npm-run-all` to run multiple other scripts. Before we can use it, we must install `npm-run-all`:
+
+```
+> npm install npm-run-all
+```
+
+Now try it:
+```
+> npm run devstart-fresh
+```
+
+This will *first* re-initialize the database tables, insert sample data, print database contents, *then* start the server, restarting on file change. Ideal for a fresh development session!
 
 Going forward, you can start using `npm run devstart` instead of `node app.js ` for most of your development needs. The other `npm` scripts are (for now) just for convenience. 
 
@@ -126,7 +152,7 @@ This kind of server generally follows the following pattern:
 
 There are a variety of formats the response might take: it could be raw data from the database (e.g. plaintext or JSON) or fully formed HTML pages based on data. Such database-driven HTML pages are considered ***dynamic***, rather than static. 
 
-Making our webapp dynamic is a big step, conceptually. Rather than making the leap to the final code in one go, we'll break down the process and undersatnding into 2 main parts.
+Making our webapp dynamic is a big step, conceptually. Rather than making the leap to the final code in one go, we'll break down the process and understanding into 2 main parts.
 
 1. In PART 1 of the tutorial, we'll first focus on making our server query the database upon HTTP request, receive the data from the database, and then respond with that raw data.  (You can see the state of `app.js` at the end of this part in `app-part1.js`)
 
@@ -170,29 +196,35 @@ The client is ostensibly interested in seeing a summary list of all rows in the 
 We might execute something like this to get the data we'd like to see on the `/assignments` page:
 
 ```sql
-SELECT 
-    id, title, priority, subject, 
-    DATE_FORMAT(dueDate, "%m/%d/%Y (%W)") AS dueDateFormatted
-FROM 
-    assignments
+    SELECT 
+        assignmentId, title, priority, subjectName, 
+        assignments.subjectId as subjectId,
+        DATE_FORMAT(dueDate, "%m/%d/%Y (%W)") AS dueDateFormatted
+    FROM assignments
+    JOIN subjects
+        ON assignments.subjectId = subjects.subjectId
+    ORDER BY assignments.assignmentId DESC
 ```
 *(also in `db/queries/crud/read_assignments_all.sql`)*
 
-> We executed a simple `SELECT * from assignments` query at the end of the `db/db_init.js` in the last tutorial. 
-> This query above differs in a couple of ways:  
+> We executed a similar query in `db/db_print.js` in the last tutorial. The query above differs in a couple of ways:  
+> - the specific columns being selected, rather than using `SELECT *` to get all columns. Notice the `subjectId` and `description` columns are left out.
 > - the `DATE_FORMAT` SQL function (read the (DATE_FORMAT documentation here)[https://dev.mysql.com/doc/refman/8.0/en/date-and-time-functions.html#function_date-format]), used to format the dueDate column a certain way
-> - the use of `AS` to rename the result of the DATE_FORMAT 
-> lack of the `description` column; since it's long, we'll only show it on the details page.
+> - the use of `AS` to rename ("alias") the result of both `assignments.subjectId` as just `subjectId`, and the result of the `DATE_FORMAT` function as `dueDateFormatted`
+> - the ordering of the data by `assignmentId DESC`; this puts the most recently created entries at the top.
 
 Replace the code for the `/assignments` route with this code instead:
 ```js
 // define a route for the assignment list page
 const read_assignments_all_sql = `
-    SELECT
-        id, title, priority, subject, 
+    SELECT 
+        assignmentId, title, priority, subjectName, 
+        assignments.subjectId as subjectId,
         DATE_FORMAT(dueDate, "%m/%d/%Y (%W)") AS dueDateFormatted
-    FROM 
-        assignments
+    FROM assignments
+    JOIN subjects
+        ON assignments.subjectId = subjects.subjectId
+    ORDER BY assignments.assignmentId DESC
 `
 app.get( "/assignments", ( req, res ) => {
     db.execute(read_assignments_all_sql, (error, results) => {
@@ -206,39 +238,69 @@ app.get( "/assignments", ( req, res ) => {
 });
 ```
 
-and visit `localhost:3000/assignments` on your browser. Now, instead of an HTML page, you should see some plaintext with JSON-style data from the database. 
+and visit `localhost:3000/assignments` on your browser. Now, instead of an HTML page, you should see some plaintext with JSON-style data from the database, similar to this: 
 
-> If `DEBUG` is `true`, you'll also see it printed in your console. It'll be nicely formatted in the console, but not so much on your browser.
-
-```
+```json
 [
   {
-    id: 1,
-    title: 'Textbook Exercises',
-    priority: 2,
-    dueDateFormatted: '05/26/2023 (Friday)'
+    assignmentId: 7,
+    title: 'Watch WWII docuseries on PBS',
+    priority: null,
+    subjectName: 'History',
+    subjectId: 6,
+    dueDateFormatted: null
   },
   {
-    id: 2,
-    title: 'Long Form Essay',
-    priority: 8,
-    dueDateFormatted: '06/01/2023 (Thursday)'
+    assignmentId: 6,
+    title: 'Cell Function Research Paper',
+    priority: null,
+    subjectName: 'Biology',
+    subjectId: 5,
+    dueDateFormatted: '06/06/2023 (Tuesday)'
   },
   {
-    id: 3,
+    assignmentId: 5,
+    title: 'Practice!',
+    priority: 1,
+    subjectName: 'Music',
+    subjectId: 4,
+    dueDateFormatted: null
+  },
+  {
+    assignmentId: 4,
+    title: 'Recursion Lab',
+    priority: 7,
+    subjectName: 'Comp Sci',
+    subjectId: 1,
+    dueDateFormatted: '05/23/2023 (Tuesday)'
+  },
+  {
+    assignmentId: 3,
     title: 'Web App Project',
     priority: 5,
+    subjectName: 'Comp Sci',
+    subjectId: 1,
     dueDateFormatted: '06/07/2023 (Wednesday)'
   },
   {
-    id: 4,
-    title: 'Recursion Lab',
-    priority: 7,
-    dueDateFormatted: '05/23/2023 (Tuesday)'
+    assignmentId: 2,
+    title: 'Long Form Essay',
+    priority: 8,
+    subjectName: 'Language',
+    subjectId: 3,
+    dueDateFormatted: '06/01/2023 (Thursday)'
   },
-  { id: 5, title: 'Practice!', priority: null, dueDateFormatted: null }
+  {
+    assignmentId: 1,
+    title: 'Textbook Exercises',
+    priority: 10,
+    subjectName: 'Math',
+    subjectId: 2,
+    dueDateFormatted: '05/26/2023 (Friday)'
+  }
 ]
 ```
+> If `DEBUG` is `true`, you'll also see it printed in your console. It'll be nicely formatted in the console, but probably not so much on your browser.
 
 Great! **This is a big step that's important to understand.** Let's break down the new code:
 
@@ -266,19 +328,20 @@ The client is interested in details about a *particular* row in the assignments 
 This means the app server will need to execute something like following SQL query upon request: 
 
 ```sql
-    SELECT
-        id, title, priority, subject,
-        DATE_FORMAT(dueDate, "%W, %M %D %Y") AS dueDateExtended, 
-        DATE_FORMAT(dueDate, "%Y-%m-%d") AS dueDateYMD, 
-        description
-    FROM 
-        assignments
-    WHERE
-        id = ?
+SELECT
+    assignmentId, title, priority, subjectName,
+    assignments.subjectId as subjectId,
+    DATE_FORMAT(dueDate, "%W, %M %D %Y") AS dueDateExtended, 
+    DATE_FORMAT(dueDate, "%Y-%m-%d") AS dueDateYMD, 
+    description
+FROM assignments
+JOIN subjects
+    ON assignments.subjectId = subjects.subjectId
+WHERE assignmentId = ?
 ```
 *(also in `db/queries/crud/read_assignment_detail.sql`)*
 
-where the `?` placeholder must be filled in with the appropriate id.
+where the `?` placeholder must be filled in with the appropriate `assignmentId` value.
 
 > Note also that the `dueDate` is being formatted and aliased two different ways - `dueDateExtended` is a very "human" way to write/read dates, and `dueDateYMD` is the date formatted like `yyyy-mm-dd` - as both MySQL and HTML date `<input>` elements use internally. We will use both later.
 
@@ -291,14 +354,15 @@ Replace the code for the `/assignments/detail` route with this code instead:
 // define a route for the assignment detail page
 const read_assignment_detail_sql = `
     SELECT
-        id, title, priority, subject,
+        assignmentId, title, priority, subjectName,
+        assignments.subjectId as subjectId,
         DATE_FORMAT(dueDate, "%W, %M %D %Y") AS dueDateExtended, 
         DATE_FORMAT(dueDate, "%Y-%m-%d") AS dueDateYMD, 
         description
-    FROM 
-        assignments
-    WHERE
-        id = ?
+    FROM assignments
+    JOIN subjects
+        ON assignments.subjectId = subjects.subjectId
+    WHERE assignmentId = ?
 `
 app.get( "/assignments/detail", ( req, res ) => {
     db.execute(read_assignment_detail_sql, [1], (error, results) => {
@@ -313,11 +377,13 @@ app.get( "/assignments/detail", ( req, res ) => {
 ```
 
 If you navigate your browser to `localhost:3000/assignments/detail`, you should receive data like this:
-```
+```json
   {
-    id: 1,
+    assignmentId: 1,
     title: 'Textbook Exercises',
-    priority: 2,
+    priority: 10,
+    subjectName: 'Math',
+    subjectId: 2,
     dueDateExtended: 'Friday, May 26th 2023',
     dueDateYMD: '2023-05-26',
     description: 'Do odd questions in the range #155 - #207 (chapter 11). Remember to show your work!'
@@ -327,7 +393,7 @@ If you navigate your browser to `localhost:3000/assignments/detail`, you should 
 
 Notice the route handler is very similar (for now) to the `/assignments` route from earlier. The only differences are:
 
-1. To assign `?` placeholders in SQL statements, a second parameter is passed to `db.execute()`: an array containing values for each `?` to replace.  In this case, there is only one `?` placeholder, and the array contains just a single value: `1`.  This "replace-the-placeholder" technique is known as a **prepared statement**, and was demonstrated in `db/db_init.js` in the previous tutorial. (There is more discussion about prepared statements and why they are used below...) 
+1. To assign `?` placeholders in SQL statements, a second parameter is passed to `db.execute()`: an array containing values for each `?` to replace.  In this case, there is only one `?` placeholder, and the array contains just a single value: `1`.  This "replace-the-placeholder" technique is known as a **prepared statement**, and was demonstrated in `db/db_insert_sample_data.js` in the previous tutorial. (There is more discussion about prepared statements and why they are used below...) 
 2. Results for a `SELECT` statement are always arrays, even if only one row is selected. The response here only needs to send the element in the first index of the results, not the entire results array. (Of course, if no such element exists, an `undefined` will be sent instead! We'll also address this more below.. )
 
 
@@ -349,11 +415,11 @@ app.get( "/assignments/:id",
 The `:id` part declares a URL parameter `id`. This makes the route apply to *any* URL path of the pattern `/assignments/:id`, where `:id` can be any (non-blank) value. 
 
 > NOTE: There is no limitation to where the `:id` goes in the path - we could have chosen to structure it like `/assignments/detail/:id` or `/assignments/:id/detail`, for example.
-> There is also no limitation on the names or number of URL parameters. If, theoretically, we wanted a page that showed *two* assignments at once, we might have a route like `/assignments/compare/:first/:second`
+> There is also no limitation on the names or number of URL parameters. If, *theoretically*, we wanted a page that showed *two* assignments at once, we might have a route like `/assignments/compare/:first/:second`
 
 Inside the route handler, all URL parameters are sub-properties of the `req.params` property. So `req.params.id` will contain the value of the `:id` part of the URL.
 
-If you see where this is going, the next change is very natural: replace the `1` in the `db.execute()`'s second parameter with `req.params.id`. Now, the SQL prepared statement will use the `id` parameter from the URL as the value of `id` in the query!
+If you see where this is going, the next change is very natural: replace the `1` in the `db.execute()`'s second parameter with `req.params.id`. Now, the SQL prepared statement will use the `id` parameter from the URL as the value of `assignmentId` in the query!
 
 Together, the updated route and handler look like this:
 
@@ -371,7 +437,7 @@ Test it by navigating your browser to `localhost:3000/assignments/1`, then repla
 
 #### (4.2.2.3) Send a 404 when assignment not found.
 
-If you try a URL like `localhost:3000/assignments/BADID`, you'll see a blank page. Since no assignment with `id = BADID` exists, the query's `results` are an empty array, and `results[0]` is undefined. This isn't a database error (the query still executed correctly) so a `500` status code is inappropriate, but since the data being requested wasn't found, a status code of `404 Not Found` should be sent along with a more informative message.
+If you try a URL like `localhost:3000/assignments/BADID`, you'll see a blank page. Since no assignment with `assignmentId = BADID` exists, the query's `results` are an empty array, and `results[0]` is undefined. This isn't a database error (the query still executed correctly) so a `500` status code is inappropriate, but since the data being requested wasn't found, a status code of `404 Not Found` should be sent along with a more informative message.
 
 Update the query callback code with a new "else if" clause:
 ```js
@@ -475,29 +541,33 @@ For the other two routes that involve querying the database, it gets much more i
 
 For the `/assignments/:id` route, we want to render the `detail` view (`detail.ejs`), but with the data in `results[0]`. 
 
-The only part that needs to change is the else block, but here's the whole updated `/assignments/:id` route:
+The only part that needs to change is the `else` block, but here's the whole updated `/assignments/:id` route:
 ```js
 app.get( "/assignments/:id", ( req, res ) => {
     db.execute(read_assignment_detail_sql, [req.params.id], (error, results) => {
+        if (DEBUG)
+            console.log(error ? error : results);
         if (error)
             res.status(500).send(error); //Internal Server Error
         else if (results.length == 0)
             res.status(404).send(`No assignment found with id = "${req.params.id}"` ); // NOT FOUND
         else {
-            let data = results[0]; // results is still an array, get first (only) element
+
+            let data = {hw: results[0]}; // results is still an array, get first (only) element
             res.render('detail', data); 
-            // data's object structure: 
-            //  { id: ___ , title:___ , 
-            //    priority: ____ , dueDateExtended: ____ , 
-            //    dueDateYMD: ____, description: ____ }
+            // What's passed to the rendered view: 
+            //  hw: { id: ___ , title: ___ , priority: ___ , 
+            //    subjectName: ___ , subjectId: ___, 
+            //    dueDateExtended: ___ , dueDateYMD: ___ , description: ___ 
+            //  }
         }
     });
 });
 ```
 
-**Key Concept:** All the properties of the `data` object that was passed as the second parameter to `res.render` become accessable as **variables** when EJS is rendering the template. 
+**Key Concept:** All the properties of the `data` object that is passed as the second parameter to `res.render` become accessible as **variables** when EJS is rendering the template. 
 
-To define how that data gets used, we now can edit `detail.ejs`.
+This means that the `res.render('detail', data)` call will give `detail.ejs` a variable it can use called `hw`. Let's see how that can be used below...
 
 ##### (4.3.2.2.1) Rendering details (Using `<%= ____ %>` EJS output tags)
 
@@ -534,24 +604,24 @@ But as an EJS template file, we can change the static data into this:
 
 ```ejs
 <div class="section flow-text" id="details">
-    <h1><%= title %></h1>
+    <h1><%= hw.title %></h1>
     <table>
         <tr>
             <th>Priority:</th>
-            <td><%= priority %></td>
+            <td><%= hw.priority %></td>
         </tr>
         <tr>
             <th>Subject:</th>
-            <td><%= subject %></td>
+            <td><%= hw.subjectName %></td>
         </tr>
         <tr>
             <th>Due Date:</th>
-            <td><%= dueDateExtended %></td>
+            <td><%= hw.dueDateExtended %></td>
         </tr>
         <tr>
             <th>Detailed Description:</th>
             <td>
-                <%= description %>
+                <%= hw.description %>
             </td>
         </tr>
     </table>
@@ -560,14 +630,14 @@ But as an EJS template file, we can change the static data into this:
 
 Everything within a `<%= ____ %>` in an EJS template gets interpreted as JavaScript snippets and outputs the value of the JS expression into the template as plain text. (We call them **"output tags"**)
 
-So `res.render('detail', data)` will cause the various `<%= ____ %>` in `detail.ejs` to be replaced with value of `data.title`,`data.priority`,`data.subject`, etc..., and the resulting HTML will be sent as the response. 
+So the various `<%= ____ %>` in `detail.ejs` will be replaced with the value of `hw.title`,`hw.priority`,`hw.subject`, etc..., and the resulting HTML will be sent as the response. 
 
 Visit `localhost:3000/assignments/1`, `/2`, `/3`, etc... Magic! You should see the detail page filled with the database's actual data for each assignment.
 
 > A few notes about EJS output tags: 
-> 1. If the variable's value is `null`, the `<%=___ %>` will output nothing.
-> 2. If the EJS template tries to use a variable that was *not* a property of `res.render`'s `data` parameter, you'll get an error that it is not defined. 
-> 3.  `<%= ___ %>`  will also "escape" the output as HTML safe text - that is, if the output contains text that could be accidentally interpreted as HTML tags (like `<` or `>`), they will be converted into things that are always interpreted as plaintext (like `&lt;` or `&gt;`). 
+> 1. If the EJS template tries to use a variable that was *not* a property of `res.render`'s `data` parameter, you'll get an error that it is not defined. 
+> 2. If the `<%=___ %>` value is `null` or `undefined`, it will output nothing.
+> 3.  `<%= ___ %>`  will "escape" the output as HTML safe text - that is, if the output contains text that could be accidentally interpreted as HTML tags (like `<` or `>`), they will be converted into things that are always interpreted as plaintext (like `&lt;` or `&gt;`). 
 > Generally, escaping is a good and safe thing to do (imagine if someone put weird HTML tags as their assignment titles!), but there is an alternative "no-escape" output tag `<%- ___ %>`, which allows you to (dangerously!) inject raw content.
 
 ##### (4.3.2.2.2)  Prefilling the Edit Form (Using `<% if... %>` EJS control flow tags)
@@ -585,10 +655,10 @@ Currently, the `<form>` contains the following 5 inputs with hard-coded pre-fill
 ...
 <select type="number" id="subjectInput" name="subject">
     <option value="" disabled>Choose your subject</option>
-    <option value="Comp Sci">Comp Sci</option>
-    <option value="Math" selected>Math</option>
-    <option value="Language">Language</option>
-    <option value="Music">Music</option>
+    <option value=1>Comp Sci</option>
+    <option value=2 selected>Math</option>
+    <option value=3>Language</option>
+    <option value=4>Music</option>
 </select>
 ...
 <input type="date" id="dueDateInput" name="dueDate"
@@ -627,27 +697,41 @@ EJS control flow is done with `<% ___ %>` (no `=` inside!) "tags", and can conta
 
 Here's how the `<select>` can be prefilled:
 ```ejs
-<select type="number" id="subjectInput" name="subject">
-    <option value="" disabled <% if (subject == "") { %> selected <% } %>>
-        Choose your subject</option>
-    <option value="Comp Sci"  <% if (subject == "Comp Sci") { %> selected <% } %>>
-        Comp Sci</option>
-    <option value="Math"      <% if (subject == "Math") { %> selected <% } %>>
-        Math</option>
-    <option value="Language"  <% if (subject == "Language") { %> selected <% } %>>
-        Language</option>
-    <option value="Music"     <% if (subject == "Music") { %> selected <% } %>>
-        Music</option>
+<select type="number" id="subjectInput" name="subject" required>
+    <option value="" disabled > Choose your subject </option>
+    <option value=1   <% if (hw.subjectId == 1) { %> selected <% } %>> Comp Sci </option>
+    <option value=2   <% if (hw.subjectId == 2) { %> selected <% } %>> Math </option>
+    <option value=3   <% if (hw.subjectId == 3) { %> selected <% } %>> Language </option>
+    <option value=4   <% if (hw.subjectId == 4) { %> selected <% } %>> Music </option>
+    <option value=5   <% if (hw.subjectId == 5) { %> selected <% } %>> Biology </option>
+    <option value=6   <% if (hw.subjectId == 6) { %> selected <% } %>> History </option>
 </select>
 ```
 
 This can be pretty weird to understand at first, so take a minute to digest it:
 - The `<% %>` tags are being used to create multiple `if` statements = the `if(...){` and `}` are in separate tags, with a *body* between them.
 - When the `if` *condition* evaluates to true, then the *body* of the `if` statement will be rendered. When false, the *body* is not rendered!
-- In this case, each of the `if` *conditions* are checking if the `subject` variable matches the `<option>`'s value. The `if` *body* contains the `selected` attribute.
+- In this case, each of the `if` *conditions* are checking if the `hw.subjectId` matches the `<option>`'s value. The `if` *body* contains the `selected` attribute.
 - Since `subject` can only match one of the `<option>`, only the `<option>` that matches will have the `selected` attribute rendered (and none of the others will), thus pre-selecting it in the resulting page's form.
 
-Visit `localhost:3000/assignments/1`, `/2`, `/3`, etc... again. Even more magic! The `Edit` form's various inputs should be pre-filled with the database's data as well.
+Visit `localhost:3000/assignments/1`, `/2`, `/3`, etc... again. Even more magic! The `Edit` form's various inputs should be pre-filled with the database's data.
+
+> Our original prototype only had 4 subject options, but now the database contains 6 options for subject. We added the additonal subject options to match our database, but as soon as our database changes, our hard-coded options will be out of sync.
+> 
+> We won't address the final solution to this problem now, but we will in a later tutorial after we give users the ability to add new subjects.
+>
+> For now, you should update the `<select>` in the `assignments.ejs` template as well, so as to also include all 6 options:
+> ```
+><select id="subjectInput" name="subject" required>
+>    <option value="" disabled selected>Choose your subject</option>
+>    <option value=1>Comp Sci</option>
+>    <option value=2>Math</option>
+>    <option value=3>Language</option>
+>    <option value=4>Music</option>
+>    <option value=5>Biology</option>
+>    <option value=6>History</option>
+></select>
+> ``` 
 
 #### (4.3.2.3) Rendering the assignments list page (assignments.ejs) (Using `<% for... %>` EJS control flow tags)
 
@@ -784,7 +868,7 @@ The most interesting use of the output tags here is setting the hyperlink for ea
 > **NOTE: ALTERNATIVE FOR LOOPS**
 > Instead of a classic `for` loop, you could instead use a `forEach` loop:
 > ```ejs
->   <% inventory.forEach( hw => { %>
+>   <% hwlist.forEach( hw => { %>
 >       <tr>
 >           <td><%= hw.title %></td>
 >           ...  <!-- continued use of hw -->
@@ -793,7 +877,7 @@ The most interesting use of the output tags here is setting the hyperlink for ea
 >```
 > or a `for...of` loop:
 >```ejs
->   <% for( const hw of inventory ) { %>
+>   <% for( const hw of hwlist ) { %>
 >       <tr>
 >           <td><%= hw.title %></td>
 >           ...  <!-- continued use of hw -->
@@ -808,4 +892,8 @@ We now have a fully connected 3-layer web app! Using SQL queries and EJS, the se
 
 > In the tutorials so far, we first prototyped the pages, then designed the database accordingly, wrote queries, and finally modified the prototype into a template based on the queries. There is no requirement, however, that you always follow the same process: the template could come before the data queries are written, or the database could come before the protoypes. You might even skip the protoype step altogether, if you have a strong idea of how the various layers will interact from the start.
 
-Of course, the app is far from fully *functional* The next steps are to fully implement the forms so that they produce "`POST`" requests to create and update entries in the database, as well as make the delete buttons also update the database. We also would like to improve our page views to have sorting options.
+Of course, the app is far from fully *functional* or *fleshed out.* 
+
+Our rendered pages actually have a major missing piece - the `<select>` drop downs for the subject in the forms are not being rendered with all the options listed in the `subjects` table. And, of course, those forms still don't do anything...
+
+The next steps are to dynamically render those drop downs, fully implement the forms so that they produce "`POST`" requests to create and update entries in the database, and make the delete buttons also update the database. We would also like to improve our assignment list page to have sorting options.

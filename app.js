@@ -1,4 +1,4 @@
-// VERSION OF app.js AFTER PART 1 OF TUTORIAL
+// VERSION OF app.js AFTER PART 2 OF TUTORIAL
 const DEBUG = true;
 
 //set up the server
@@ -25,20 +25,14 @@ app.get( "/", ( req, res ) => {
 
 // define a route for the assignment list page
 const read_assignments_all_sql = `
-    SELECT
-        assignmentId, title, priority, assignments.subjectId, subjectName,
+    SELECT 
+        assignmentId, title, priority, subjectName, 
+        assignments.subjectId as subjectId,
         DATE_FORMAT(dueDate, "%m/%d/%Y (%W)") AS dueDateFormatted
-    FROM 
-        assignments
+    FROM assignments
     JOIN subjects
         ON assignments.subjectId = subjects.subjectId
-`
-
-const read_subjects_all_sql = `
-    SELECT 
-        subjectId, subjectName
-    FROM
-        subjects
+    ORDER BY assignments.assignmentId DESC
 `
 app.get( "/assignments", ( req, res ) => {
     db.execute(read_assignments_all_sql, (error, results) => {
@@ -47,27 +41,14 @@ app.get( "/assignments", ( req, res ) => {
         if (error)
             res.status(500).send(error); //Internal Server Error
         else {
-            
-            db.execute(read_subjects_all_sql, (error2, results2) => {
-                if (DEBUG)
-                    console.log(error2 ? error2 : results2);
-                if (error2)
-                    res.status(500).send(error2); //Internal Server Error
-                else {
-                    let data = { hwlist : results, subjectlist : results2 };
-                    res.render('assignments', data);
-                    // data's object structure: 
-                    //  { hwlist: [
-                    //     {  id: __ , title: __ , priority: __ , subject: __ ,  dueDateFormatted: __ },
-                    //     {  id: __ , title: __ , priority: __ , subject: __ ,  dueDateFormatted: __ },
-                    //     ...],
-                    //     subjectlist : [
-                    //         {subjectId: ___, subjectName: ___}, ...
-                    //     ]
-                    //  }
-                }
-            })
-            
+            let data = { hwlist : results };
+            res.render('assignments', data);
+            // What's passed to the rendered view: 
+            //  hwlist: [
+            //     {  id: __ , title: __ , priority: __ , subjectName: __ , subjectId: __ ,  dueDateFormatted: __ },
+            //     {  id: __ , title: __ , priority: __ , subjectName: __ , subjectId: __ ,   dueDateFormatted: __ },
+            //     ...
+            //  ]
             
         }
     });
@@ -76,14 +57,15 @@ app.get( "/assignments", ( req, res ) => {
 // define a route for the assignment detail page
 const read_assignment_detail_sql = `
     SELECT
-        id, title, priority, subject,
+        assignmentId, title, priority, subjectName,
+        assignments.subjectId as subjectId,
         DATE_FORMAT(dueDate, "%W, %M %D %Y") AS dueDateExtended, 
         DATE_FORMAT(dueDate, "%Y-%m-%d") AS dueDateYMD, 
         description
-    FROM 
-        assignments
-    WHERE
-        id = ?
+    FROM assignments
+    JOIN subjects
+        ON assignments.subjectId = subjects.subjectId
+    WHERE assignmentId = ?
 `
 app.get( "/assignments/:id", ( req, res ) => {
     db.execute(read_assignment_detail_sql, [req.params.id], (error, results) => {
@@ -94,12 +76,13 @@ app.get( "/assignments/:id", ( req, res ) => {
         else if (results.length == 0)
             res.status(404).send(`No assignment found with id = "${req.params.id}"` ); // NOT FOUND
         else {
-            let data = results[0]; // results is still an array, get first (only) element
+
+            let data = {hw: results[0]}; // results is still an array, get first (only) element
             res.render('detail', data); 
-            // data's object structure: 
-            //  { id: ___ , title: ___ , priority: ___ , 
-            //    subject: ___ , dueDateExtended: ___ , 
-            //    dueDateYMD: ___ , description: ___ 
+            // What's passed to the rendered view: 
+            //  hw: { id: ___ , title: ___ , priority: ___ , 
+            //    subjectName: ___ , subjectId: ___, 
+            //    dueDateExtended: ___ , dueDateYMD: ___ , description: ___ 
             //  }
         }
     });

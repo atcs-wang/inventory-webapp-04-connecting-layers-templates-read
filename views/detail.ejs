@@ -40,24 +40,24 @@
     <!-- Actual page content! -->
     <div class="container">
         <div class="section flow-text" id="details">
-            <h1><%= title %></h1>
+            <h1><%= hw.title %></h1>
             <table>
                 <tr>
                     <th>Priority:</th>
-                    <td><%= priority %></td>
+                    <td><%= hw.priority %></td>
                 </tr>
                 <tr>
                     <th>Subject:</th>
-                    <td><%= subject %></td>
+                    <td><%= hw.subjectName %></td>
                 </tr>
                 <tr>
                     <th>Due Date:</th>
-                    <td><%= dueDateExtended %></td>
+                    <td><%= hw.dueDateExtended %></td>
                 </tr>
                 <tr>
                     <th>Detailed Description:</th>
                     <td>
-                        <%= description %>
+                        <%= hw.description %>
                     </td>
                 </tr>
             </table>
@@ -83,34 +83,34 @@
                 <form id="updateForm">
                     <div class="row">
                         <div class="input-field col s8">
-                            <input type="text" id="titleInput" name="title" class="validate" data-length="32" required value=<%= title %>>
+                            <input type="text" id="titleInput" name="title" class="validate" data-length="32" required value=<%= hw.title %>>
                             <label for="titleInput">Assignment title:</label>
                         </div>
                         <div class="input-field col s4">
-                            <input type="number" id="priorityInput" name="priority" class="validate" min=1 max=10 value=<%= priority %>>
+                            <input type="number" id="priorityInput" name="priority" class="validate" min=1 max=10 value=<%= hw.priority %>>
                             <label for="priorityInput">Priority (1-10):</label>
                         </div>
     
                         <div class="input-field col s6">
-                            <select type="number" id="subjectInput" name="subject">
-                                <option value="" disabled>
-                                    Choose your subject</option>
-                                <% for (let i = 0; i < subjectlist.length; i++) { %>
-                                    <option value=<%=subjectlist[i].subjectId %> 
-                                        <% if (subjectId == subjectlist[i].subjectId) { %> selected <% } %> >
-                                        <%= subjectlist[i].subjectName %></option>
-                                <% } %>
+                            <select type="number" id="subjectInput" name="subject" required>
+                                <option value="" disabled> Choose your subject </option>
+                                <option value=1   <% if (hw.subjectId == 1) { %> selected <% } %>> Comp Sci </option>
+                                <option value=2   <% if (hw.subjectId == 2) { %> selected <% } %>> Math </option>
+                                <option value=3   <% if (hw.subjectId == 3) { %> selected <% } %>> Language </option>
+                                <option value=4   <% if (hw.subjectId == 4) { %> selected <% } %>> Music </option>
+                                <option value=5   <% if (hw.subjectId == 5) { %> selected <% } %>> Biology </option>
+                                <option value=6   <% if (hw.subjectId == 6) { %> selected <% } %>> History </option>
                               </select>
                               <label for="subjectInput">Subject:</label>
                         </div>
     
                         <div class="input-field col s6">
-                            <input type="date" id="dueDateInput" name="dueDate" value=<%= dueDateYMD %>>  <!-- Note that the date value format is "yyyy-mm-dd" -->
+                            <input type="date" id="dueDateInput" name="dueDate" value=<%= hw.dueDateYMD %>>  <!-- Note that the date value format is "yyyy-mm-dd" -->
                             <label for="dueDateInput">Due Date:</label>
                         </div>
 
                         <div class="input-field col s12">
-                            <textarea class="materialize-textarea" id="descriptionInput" name="description"><%= description %></textarea>
+                            <textarea class="materialize-textarea" id="descriptionInput" name="description"><%= hw.description %></textarea>
                             <label for="descriptionInput">Detailed Description:</label>
                         </div>
     

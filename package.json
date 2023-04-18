@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node app.js",
     "devstart": "nodemon -e js,ejs,sql,env app.js",
-    "initdb": "node db/db_init.js"
+    "dbcreate": "node db/db_create.js",
+    "dbsample": "node db/db_insert_sample_data.js",
+    "dbprint": "node db/db_print.js",
+    "devstart-fresh": "npm-run-all dbcreate dbsample dbprint devstart"
   },
   "repository": {
     "type": "git",
@@ -23,7 +26,8 @@
     "ejs": "^3.1.9",
     "express": "^4.18.2",
     "morgan": "^1.10.0",
-    "mysql2": "^2.3.3"
+    "mysql2": "^2.3.3",
+    "npm-run-all": "^4.1.5"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"

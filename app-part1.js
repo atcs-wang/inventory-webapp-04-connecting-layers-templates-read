@@ -22,11 +22,14 @@ app.get( "/", ( req, res ) => {
 
 // define a route for the assignment list page
 const read_assignments_all_sql = `
-    SELECT
-        id, title, priority, 
+    SELECT 
+        assignmentId, title, priority, subjectName, 
+        assignments.subjectId as subjectId,
         DATE_FORMAT(dueDate, "%m/%d/%Y (%W)") AS dueDateFormatted
-    FROM 
-        assignments
+    FROM assignments
+    JOIN subjects
+        ON assignments.subjectId = subjects.subjectId
+    ORDER BY assignments.assignmentId DESC
 `
 app.get( "/assignments", ( req, res ) => {
     db.execute(read_assignments_all_sql, (error, results) => {
@@ -42,14 +45,15 @@ app.get( "/assignments", ( req, res ) => {
 // define a route for the assignment detail page
 const read_assignment_detail_sql = `
     SELECT
-        id, title, priority, 
+        assignmentId, title, priority, subjectName,
+        assignments.subjectId as subjectId,
         DATE_FORMAT(dueDate, "%W, %M %D %Y") AS dueDateExtended, 
         DATE_FORMAT(dueDate, "%Y-%m-%d") AS dueDateYMD, 
         description
-    FROM 
-        assignments
-    WHERE
-        id = ?
+    FROM assignments
+    JOIN subjects
+        ON assignments.subjectId = subjects.subjectId
+    WHERE assignmentId = ?
 `
 app.get( "/assignments/:id", ( req, res ) => {
     db.execute(read_assignment_detail_sql, [req.params.id], (error, results) => {
