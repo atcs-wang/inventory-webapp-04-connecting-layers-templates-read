@@ -683,7 +683,7 @@ In the same way as shown above, the `<input>` and `<textarea>` can prefilled usi
  class="validate" min=1 max=10 value=<%= priority %>>
 ...
 <input type="date" id="dueDateInput" name="dueDate" 
- value=<%= dueDateYMD %>>  <!-- Note that the date value format is "yyyy-mm-dd" -->
+ value="<%= dueDateYMD %>">  <!-- Note that the date value format is "yyyy-mm-dd" -->
 ...
 <textarea class="materialize-textarea" id="descriptionInput" 
  name="description"><%= description %></textarea>
